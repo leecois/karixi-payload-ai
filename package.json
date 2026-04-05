@@ -1,0 +1,42 @@
+{
+  "name": "@karixi/payload-ai",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "peerDependencies": {
+    "payload": "^3.81.0",
+    "@payloadcms/plugin-mcp": "^3.81.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/stagehand": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.10",
+    "@payloadcms/plugin-mcp": "^3.81.0",
+    "@types/react": "^19.2.14",
+    "payload": "^3.81.0",
+    "react": "^19.2.4",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write ."
+  }
+}
