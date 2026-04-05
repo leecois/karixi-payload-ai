@@ -28,7 +28,7 @@
     "@payloadcms/plugin-mcp": "^3.81.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/stagehand": {
+    "@browserbasehq/stagehand": {
       "optional": true
     }
   },

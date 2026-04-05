@@ -9,7 +9,7 @@ export async function getDevTools(pluginConfig: AIPluginConfig): Promise<MCPTool
   // ESM-compatible detection: try stagehand OR playwright
   try {
     try {
-      await (Function('return import("@anthropic-ai/stagehand")')() as Promise<unknown>)
+      await (Function('return import("@browserbasehq/stagehand")')() as Promise<unknown>)
     } catch {
       await (Function('return import("playwright")')() as Promise<unknown>)
     }

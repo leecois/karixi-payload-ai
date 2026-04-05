@@ -19,7 +19,7 @@ export type StagehandInstance = {
 export async function isStagehandAvailable(): Promise<boolean> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    await (Function('return import("@anthropic-ai/stagehand")')() as Promise<unknown>)
+    await (Function('return import("@browserbasehq/stagehand")')() as Promise<unknown>)
     return true
   } catch {
     return false
@@ -37,7 +37,7 @@ export async function createStagehandClient(config?: StagehandConfig): Promise<S
   // Try Stagehand first (optional peer dep — dynamic import, no static types)
   try {
     // Dynamic import via Function to avoid TS module resolution errors
-    const stagehandMod = await (Function('return import("@anthropic-ai/stagehand")')() as Promise<
+    const stagehandMod = await (Function('return import("@browserbasehq/stagehand")')() as Promise<
       Record<string, unknown>
     >)
     const StagehandClass = stagehandMod.Stagehand as new (
@@ -146,6 +146,6 @@ export async function createStagehandClient(config?: StagehandConfig): Promise<S
   }
 
   throw new Error(
-    'No browser automation available. Install either @anthropic-ai/stagehand or playwright as optional peer dependencies.',
+    'No browser automation available. Install either @browserbasehq/stagehand or playwright as optional peer dependencies.',
   )
 }

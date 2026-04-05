@@ -271,10 +271,10 @@ These tools are registered inside the MCP plugin and callable by any MCP client:
 
 ### Dev Tools (`features.devTools: true`)
 
-Requires `@anthropic-ai/stagehand` (optional peer dependency):
+Requires `@browserbasehq/stagehand` (optional peer dependency):
 
 ```bash
-bun add -d @anthropic-ai/stagehand
+bun add -d @browserbasehq/stagehand
 ```
 
 Adds four additional MCP tools:
