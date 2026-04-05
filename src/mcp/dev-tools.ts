@@ -95,6 +95,8 @@ export async function getDevTools(pluginConfig: AIPluginConfig): Promise<MCPTool
         const provider = createProvider({
           provider: pluginConfig.provider,
           apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
+          baseUrl: pluginConfig.baseUrl,
+          model: pluginConfig.model,
         })
 
         const screenshot = await captureScreenshot({ url: targetUrl })
@@ -148,6 +150,8 @@ export async function getDevTools(pluginConfig: AIPluginConfig): Promise<MCPTool
         const provider = createProvider({
           provider: pluginConfig.provider,
           apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
+          baseUrl: pluginConfig.baseUrl,
+          model: pluginConfig.model,
         })
 
         const result = await runEditTestFix({

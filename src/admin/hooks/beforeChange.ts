@@ -23,7 +23,12 @@ export function createSmartDefaultsHook(
     const { readCollectionSchema } = await import('../../core/schema-reader.js')
     const { generateDocuments } = await import('../../core/content-generator.js')
 
-    const provider = createProvider({ provider: pluginConfig.provider, apiKey })
+    const provider = createProvider({
+      provider: pluginConfig.provider,
+      apiKey,
+      baseUrl: pluginConfig.baseUrl,
+      model: pluginConfig.model,
+    })
 
     // For each configured field that is empty in the data, generate a value
     for (const [fieldName, fieldConfig] of Object.entries(collectionConfig.fields)) {

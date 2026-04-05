@@ -39,6 +39,8 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
           const provider = createProvider({
             provider: pluginConfig.provider,
             apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
+            baseUrl: pluginConfig.baseUrl,
+            model: pluginConfig.model,
           })
 
           const schema = readCollectionSchema(req.payload, collection)
@@ -104,6 +106,8 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
           const provider = createProvider({
             provider: pluginConfig.provider,
             apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
+            baseUrl: pluginConfig.baseUrl,
+            model: pluginConfig.model,
           })
 
           const schemas = readAllCollectionSchemas(req.payload)
