@@ -1,9 +1,13 @@
 /** Plugin configuration */
 export type AIPluginConfig = {
-  /** AI provider: 'anthropic' or 'openai' */
-  provider: 'anthropic' | 'openai'
+  /** AI provider */
+  provider: 'anthropic' | 'openai' | 'gemini' | 'ollama'
   /** Environment variable name for the API key */
   apiKeyEnvVar: string
+  /** Base URL override for the AI provider (required for ollama, optional for gemini/vertex) */
+  baseUrl?: string
+  /** Model name override (defaults to a sensible model per provider) */
+  model?: string
   /** Feature flags */
   features?: {
     /** Enable admin UI components (AI Fill buttons, bulk panel) */
