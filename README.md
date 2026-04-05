@@ -112,19 +112,75 @@ mcpPlugin({
 
 Get an API key at [ai.google.dev](https://ai.google.dev).
 
-#### Vertex AI (Google Cloud)
+### OpenRouter (300+ Models)
 
-For enterprise use with SLA, regional endpoints, and VPC:
+Access every major AI model through a single API — Anthropic, OpenAI, Google, Meta, Mistral, DeepSeek, Qwen, and more. Pay-per-token with no commitments.
 
 ```ts
 aiPlugin({
-  provider: 'gemini',
-  apiKeyEnvVar: 'VERTEX_ACCESS_TOKEN', // OAuth2 access token or service account token
-  baseUrl: 'https://us-central1-aiplatform.googleapis.com/v1beta/projects/YOUR_PROJECT/locations/us-central1',
-  model: 'gemini-2.5-flash',
+  provider: 'openrouter',
+  apiKeyEnvVar: 'OPENROUTER_API_KEY',
+  model: 'anthropic/claude-sonnet-4.6', // default — or any model from openrouter.ai/models
+  siteUrl: 'https://yoursite.com',      // optional — for OpenRouter attribution
+  siteName: 'Your App Name',            // optional — shows on OpenRouter dashboard
   features: { adminUI: true },
 }),
+
+mcpPlugin({
+  collections: { posts: { enabled: true } },
+  mcp: {
+    tools: getAITools({
+      provider: 'openrouter',
+      apiKeyEnvVar: 'OPENROUTER_API_KEY',
+      model: 'anthropic/claude-sonnet-4.6',
+    }),
+    prompts: getAIPrompts(),
+    resources: getAIResources(),
+  },
+}),
 ```
+
+Get an API key at [openrouter.ai/keys](https://openrouter.ai/keys).
+
+#### Available Models
+
+Any model on [openrouter.ai/models](https://openrouter.ai/models) works. Here are the top picks for content generation:
+
+**Best overall**
+
+| Model ID | Context | Input $/M | Output $/M | Notes |
+|----------|---------|-----------|------------|-------|
+| `anthropic/claude-sonnet-4.6` | 1M | $3.00 | $15.00 | Best balance of quality, speed, and structured output |
+| `openai/o3` | 200K | $2.00 | $8.00 | Best reasoning — math, science, coding |
+| `google/gemini-2.5-pro` | 1M | $1.25 | $10.00 | Multimodal (text/image/audio/video) |
+
+**Best value**
+
+| Model ID | Context | Input $/M | Output $/M | Notes |
+|----------|---------|-----------|------------|-------|
+| `google/gemini-2.5-flash` | 1M | $0.30 | $2.50 | Fast, capable, great for bulk generation |
+| `openai/gpt-4o-mini` | 128K | $0.15 | $0.60 | Cheapest multimodal from OpenAI |
+| `google/gemini-2.5-flash-lite` | 1M | $0.10 | $0.40 | Ultra-cheap, 1M context |
+| `meta-llama/llama-4-scout` | 328K | $0.08 | $0.30 | Cheapest vision-capable model |
+
+**Best open-source**
+
+| Model ID | Context | Input $/M | Output $/M | Notes |
+|----------|---------|-----------|------------|-------|
+| `deepseek/deepseek-r1` | 64K | $0.70 | $2.50 | MIT license, chain-of-thought reasoning |
+| `deepseek/deepseek-v3.2` | 164K | $0.26 | $0.38 | Sparse attention, very cheap |
+| `meta-llama/llama-4-maverick` | 1M | $0.15 | $0.60 | 400B MoE, vision-capable |
+| `qwen/qwen3-coder` | 262K | $0.22 | $1.00 | 480B MoE coding specialist |
+
+**Free (development/testing)**
+
+| Model ID | Context | Limit | Notes |
+|----------|---------|-------|-------|
+| `meta-llama/llama-3.3-70b-instruct:free` | 65K | 8 RPM | Solid baseline, no cost |
+| `qwen/qwen3-coder:free` | 262K | Rate-limited | Coding specialist |
+| `mistralai/mistral-small-3.1-24b-instruct:free` | 128K | Rate-limited | Vision + function calling |
+
+> Model IDs use the `provider/model-name` format. Append `:free` for free-tier variants (rate-limited, not for production).
 
 ### Ollama (Local / Self-Hosted)
 
@@ -305,12 +361,14 @@ Adds four additional MCP tools:
 ```ts
 aiPlugin({
   // Required
-  provider: 'anthropic' | 'openai' | 'gemini' | 'ollama',
+  provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama',
   apiKeyEnvVar: string,           // env var name (not the key itself)
 
   // Optional
-  baseUrl: string,                // provider endpoint (required for ollama, optional for gemini/vertex)
+  baseUrl: string,                // provider endpoint (required for ollama, optional for gemini)
   model: string,                  // model override (each provider has a sensible default)
+  siteUrl: string,                // OpenRouter only — your site URL for attribution
+  siteName: string,               // OpenRouter only — your app name for dashboard
   features: {
     adminUI: boolean,             // default: false
     devTools: boolean,            // default: false
