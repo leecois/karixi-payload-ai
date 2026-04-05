@@ -87,7 +87,127 @@ mcpPlugin({
 }),
 ```
 
-> **Note:** `getAITools` requires the same `provider` and `apiKeyEnvVar` as `aiPlugin` so it can create the AI provider when tools are invoked. `getAIPrompts()` and `getAIResources()` take no arguments.
+### Google Gemini
+
+```ts
+aiPlugin({
+  provider: 'gemini',
+  apiKeyEnvVar: 'GEMINI_API_KEY',
+  // model: 'gemini-2.5-flash',  // default — or 'gemini-2.5-pro' for best quality
+  features: { adminUI: true },
+}),
+
+mcpPlugin({
+  collections: { posts: { enabled: true } },
+  mcp: {
+    tools: getAITools({
+      provider: 'gemini',
+      apiKeyEnvVar: 'GEMINI_API_KEY',
+    }),
+    prompts: getAIPrompts(),
+    resources: getAIResources(),
+  },
+}),
+```
+
+Get an API key at [ai.google.dev](https://ai.google.dev).
+
+#### Vertex AI (Google Cloud)
+
+For enterprise use with SLA, regional endpoints, and VPC:
+
+```ts
+aiPlugin({
+  provider: 'gemini',
+  apiKeyEnvVar: 'VERTEX_ACCESS_TOKEN', // OAuth2 access token or service account token
+  baseUrl: 'https://us-central1-aiplatform.googleapis.com/v1beta/projects/YOUR_PROJECT/locations/us-central1',
+  model: 'gemini-2.5-flash',
+  features: { adminUI: true },
+}),
+```
+
+### Ollama (Local / Self-Hosted)
+
+Run AI models locally with zero API costs. Works with [Ollama](https://ollama.com), [LocalAI](https://localai.io), [vLLM](https://vllm.ai), or [LM Studio](https://lmstudio.ai) — any server with an OpenAI-compatible endpoint.
+
+```ts
+aiPlugin({
+  provider: 'ollama',
+  apiKeyEnvVar: 'OLLAMA_API_KEY', // set to any value, e.g. 'ollama' — not validated
+  baseUrl: 'http://localhost:11434', // default for Ollama
+  model: 'llama3.3:8b',             // any model you've pulled
+  features: { adminUI: true },
+}),
+
+mcpPlugin({
+  collections: { posts: { enabled: true } },
+  mcp: {
+    tools: getAITools({
+      provider: 'ollama',
+      apiKeyEnvVar: 'OLLAMA_API_KEY',
+      baseUrl: 'http://localhost:11434',
+      model: 'llama3.3:8b',
+    }),
+    prompts: getAIPrompts(),
+    resources: getAIResources(),
+  },
+}),
+```
+
+#### Quick start with Ollama
+
+```bash
+# Install and start Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model (8B is good for JSON generation)
+ollama pull llama3.3:8b
+
+# Set a dummy API key env var
+export OLLAMA_API_KEY=ollama
+```
+
+#### Docker Compose (Ollama with GPU)
+
+```yaml
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+volumes:
+  ollama_data:
+```
+
+#### Other compatible servers
+
+| Server | Default URL | Notes |
+|--------|------------|-------|
+| [Ollama](https://ollama.com) | `http://localhost:11434` | Easiest setup, good model library |
+| [LocalAI](https://localai.io) | `http://localhost:8080` | Multi-modal (LLM + image gen + TTS) |
+| [vLLM](https://vllm.ai) | `http://localhost:8000` | Highest throughput, `guided_json` for 100% schema compliance |
+| [LM Studio](https://lmstudio.ai) | `http://localhost:1234` | Desktop GUI, great for macOS/Apple Silicon |
+
+#### Recommended models for JSON generation
+
+| Model | Ollama Tag | VRAM | Best for |
+|-------|-----------|------|----------|
+| Qwen3 8B | `qwen3:8b` | 8 GB | Best 8B for structured output |
+| Llama 3.3 8B | `llama3.3:8b` | 8 GB | General purpose, well-tested |
+| Mistral Small 3 | `mistral-small3:22b` | 16 GB | Strong mid-range |
+| Qwen3 32B | `qwen3:32b` | 20 GB | Near-cloud quality |
+| Llama 3.3 70B | `llama3.3:70b` | 40 GB | Best open-source quality |
+
+> **Note:** `getAITools` requires the same `provider`, `apiKeyEnvVar`, `baseUrl`, and `model` as `aiPlugin` so it can create the AI provider when tools are invoked. `getAIPrompts()` and `getAIResources()` take no arguments.
 
 ## Connecting Claude Code
 
@@ -185,10 +305,12 @@ Adds four additional MCP tools:
 ```ts
 aiPlugin({
   // Required
-  provider: 'anthropic' | 'openai',
+  provider: 'anthropic' | 'openai' | 'gemini' | 'ollama',
   apiKeyEnvVar: string,           // env var name (not the key itself)
 
   // Optional
+  baseUrl: string,                // provider endpoint (required for ollama, optional for gemini/vertex)
+  model: string,                  // model override (each provider has a sensible default)
   features: {
     adminUI: boolean,             // default: false
     devTools: boolean,            // default: false
