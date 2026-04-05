@@ -28,8 +28,6 @@ export function createSmartDefaultsHook(
       apiKey,
       baseUrl: pluginConfig.baseUrl,
       model: pluginConfig.model,
-      siteUrl: pluginConfig.siteUrl,
-      siteName: pluginConfig.siteName,
     })
 
     // For each configured field that is empty in the data, generate a value

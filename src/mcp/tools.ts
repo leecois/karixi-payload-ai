@@ -41,8 +41,6 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
             baseUrl: pluginConfig.baseUrl,
             model: pluginConfig.model,
-            siteUrl: pluginConfig.siteUrl,
-            siteName: pluginConfig.siteName,
           })
 
           const schema = readCollectionSchema(req.payload, collection)
@@ -110,8 +108,6 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
             baseUrl: pluginConfig.baseUrl,
             model: pluginConfig.model,
-            siteUrl: pluginConfig.siteUrl,
-            siteName: pluginConfig.siteName,
           })
 
           const schemas = readAllCollectionSchemas(req.payload)

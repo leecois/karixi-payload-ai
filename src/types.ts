@@ -1,17 +1,13 @@
 /** Plugin configuration */
 export type AIPluginConfig = {
   /** AI provider */
-  provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama'
+  provider: 'anthropic' | 'openai' | 'gemini' | 'ollama'
   /** Environment variable name for the API key */
   apiKeyEnvVar: string
   /** Base URL override for the AI provider (required for ollama, optional for gemini) */
   baseUrl?: string
   /** Model name override (defaults to a sensible model per provider) */
   model?: string
-  /** Site URL for OpenRouter attribution (HTTP-Referer header) */
-  siteUrl?: string
-  /** Site name for OpenRouter attribution (X-Title header) */
-  siteName?: string
   /** Feature flags */
   features?: {
     /** Enable admin UI components (AI Fill buttons, bulk panel) */

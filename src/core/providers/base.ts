@@ -3,17 +3,14 @@ import { createAnthropicProvider } from './anthropic.js'
 import { createGeminiProvider } from './gemini.js'
 import { createOllamaProvider } from './ollama.js'
 import { createOpenAIProvider } from './openai.js'
-import { createOpenRouterProvider } from './openrouter.js'
 
 export type { AIProvider }
 
 export type ProviderConfig = {
-  provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama'
+  provider: 'anthropic' | 'openai' | 'gemini' | 'ollama'
   apiKey: string
   baseUrl?: string
   model?: string
-  siteUrl?: string
-  siteName?: string
 }
 
 export function createProvider(config: ProviderConfig): AIProvider {
@@ -27,13 +24,6 @@ export function createProvider(config: ProviderConfig): AIProvider {
         apiKey: config.apiKey,
         model: config.model,
         baseUrl: config.baseUrl,
-      })
-    case 'openrouter':
-      return createOpenRouterProvider({
-        apiKey: config.apiKey,
-        model: config.model,
-        siteUrl: config.siteUrl,
-        siteName: config.siteName,
       })
     case 'ollama':
       return createOllamaProvider({

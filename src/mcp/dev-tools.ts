@@ -97,8 +97,6 @@ export async function getDevTools(pluginConfig: AIPluginConfig): Promise<MCPTool
           apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
           baseUrl: pluginConfig.baseUrl,
           model: pluginConfig.model,
-          siteUrl: pluginConfig.siteUrl,
-          siteName: pluginConfig.siteName,
         })
 
         const screenshot = await captureScreenshot({ url: targetUrl })
@@ -154,8 +152,6 @@ export async function getDevTools(pluginConfig: AIPluginConfig): Promise<MCPTool
           apiKey: process.env[pluginConfig.apiKeyEnvVar] ?? '',
           baseUrl: pluginConfig.baseUrl,
           model: pluginConfig.model,
-          siteUrl: pluginConfig.siteUrl,
-          siteName: pluginConfig.siteName,
         })
 
         const result = await runEditTestFix({
