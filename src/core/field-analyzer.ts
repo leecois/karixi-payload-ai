@@ -14,7 +14,7 @@ import type {
   UIField,
   UploadField,
 } from 'payload'
-import type { FieldSchema } from '../types.js'
+import type { BlockSchema, FieldMetadata, FieldSchema } from '../types.js'
 
 function normalizeOptions(options: readonly unknown[]): Array<{ label: string; value: string }> {
   return options.map((opt) => {
@@ -98,6 +98,74 @@ function isRichTextField(field: Field): field is RichTextField {
   return field.type === 'richText'
 }
 
+function pickStringLabel(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (typeof value === 'object' && value !== null) {
+    const first = Object.values(value as Record<string, unknown>).find(
+      (v) => typeof v === 'string' && v.length > 0,
+    )
+    if (typeof first === 'string') return first
+  }
+  return undefined
+}
+
+function extractFieldMetadata(field: Field): FieldMetadata | undefined {
+  const meta: FieldMetadata = {}
+  const admin = (field as { admin?: Record<string, unknown> }).admin
+  if (admin) {
+    const description = pickStringLabel(admin.description)
+    if (description) meta.description = description
+    const placeholder = pickStringLabel(admin.placeholder)
+    if (placeholder) meta.placeholder = placeholder
+    if (admin.readOnly === true) meta.readOnly = true
+    const custom = admin.custom as Record<string, unknown> | undefined
+    if (custom && typeof custom.aiHint === 'string') meta.aiHint = custom.aiHint
+  }
+
+  const custom = (field as { custom?: Record<string, unknown> }).custom
+  if (custom && typeof custom.aiHint === 'string' && meta.aiHint === undefined) {
+    meta.aiHint = custom.aiHint
+  }
+
+  const anyField = field as Record<string, unknown>
+  if ('defaultValue' in anyField) {
+    const dv = anyField.defaultValue
+    if (typeof dv !== 'function') meta.defaultValue = dv
+  }
+  if (typeof anyField.minLength === 'number') meta.minLength = anyField.minLength as number
+  if (typeof anyField.maxLength === 'number') meta.maxLength = anyField.maxLength as number
+  if (typeof anyField.min === 'number') meta.min = anyField.min as number
+  if (typeof anyField.max === 'number') meta.max = anyField.max as number
+  if (anyField.unique === true) meta.unique = true
+  if (anyField.localized === true) meta.localized = true
+
+  return Object.keys(meta).length > 0 ? meta : undefined
+}
+
+function analyzeBlock(block: unknown, parentPath: string): BlockSchema {
+  const b = block as {
+    slug: string
+    fields: Field[]
+    labels?: { singular?: unknown; plural?: unknown }
+    imageAltText?: string
+    interfaceName?: string
+    admin?: { custom?: Record<string, unknown> }
+  }
+  const subFields = analyzeFields(b.fields, parentPath)
+  const required = subFields.filter((f) => f.required).map((f) => f.name)
+  const label = pickStringLabel(b.labels?.singular)
+  const description = pickStringLabel(b.admin?.custom?.description)
+  const out: BlockSchema = {
+    slug: b.slug,
+    fields: subFields,
+    ...(label ? { label } : {}),
+    ...(b.imageAltText ? { imageAltText: b.imageAltText } : {}),
+    ...(description ? { description } : {}),
+    ...(required.length > 0 ? { requiredFields: required } : {}),
+  }
+  return out
+}
+
 function detectLexicalFeatures(field: RichTextField): string[] {
   const features: string[] = []
   const editor = field.editor
@@ -150,6 +218,9 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
     const path = buildPath(parentPath, name)
     const required = 'required' in field && field.required === true
 
+    const metadata = extractFieldMetadata(field)
+    const metaPart = metadata ? { metadata } : {}
+
     if (isRelationshipField(field)) {
       const _isSelfRef = false // computed in schema-reader at collection level
       const schema: FieldSchema = {
@@ -159,6 +230,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         path,
         relationTo: field.relationTo,
         hasMany: field.hasMany === true,
+        ...metaPart,
       }
       result.push(schema)
       continue
@@ -172,6 +244,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         path,
         relationTo: field.relationTo,
         hasMany: false,
+        ...metaPart,
       })
       continue
     }
@@ -184,6 +257,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         path,
         options: normalizeOptions(field.options),
         hasMany: field.hasMany === true,
+        ...metaPart,
       })
       continue
     }
@@ -195,6 +269,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         required,
         path,
         options: normalizeOptions(field.options),
+        ...metaPart,
       })
       continue
     }
@@ -207,6 +282,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         required,
         path,
         fields: subFields,
+        ...metaPart,
       })
       continue
     }
@@ -220,21 +296,20 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         required,
         path,
         fields: subFields,
+        ...metaPart,
       })
       continue
     }
 
     if (isBlocksField(field)) {
-      const blocks = field.blocks.map((block) => ({
-        slug: block.slug,
-        fields: analyzeFields(block.fields, path),
-      }))
+      const blocks = field.blocks.map((block) => analyzeBlock(block, path))
       result.push({
         name,
         type: 'blocks',
         required,
         path,
         blocks,
+        ...metaPart,
       })
       continue
     }
@@ -247,6 +322,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
         required,
         path,
         ...(lexicalFeatures.length > 0 ? { lexicalFeatures } : {}),
+        ...metaPart,
       })
       continue
     }
@@ -257,6 +333,7 @@ export function analyzeFields(fields: Field[], parentPath?: string): FieldSchema
       type: field.type,
       required,
       path,
+      ...metaPart,
     })
   }
 

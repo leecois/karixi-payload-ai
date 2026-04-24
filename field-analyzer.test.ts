@@ -148,4 +148,96 @@ describe('analyzeFields', () => {
     expect(result[0].fields?.[0].name).toBe('label')
     expect(result[0].fields?.[0].path).toBe('items.label')
   })
+
+  it('extracts admin.description into metadata', () => {
+    const fields = [
+      { type: 'text', name: 'title', admin: { description: 'The display title' } },
+    ] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.description).toBe('The display title')
+  })
+
+  it('extracts minLength/maxLength into metadata', () => {
+    const fields = [{ type: 'text', name: 'slug', minLength: 3, maxLength: 80 }] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.minLength).toBe(3)
+    expect(result[0].metadata?.maxLength).toBe(80)
+  })
+
+  it('extracts numeric min/max into metadata', () => {
+    const fields = [{ type: 'number', name: 'price', min: 0, max: 999 }] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.min).toBe(0)
+    expect(result[0].metadata?.max).toBe(999)
+  })
+
+  it('extracts defaultValue into metadata (skipping functions)', () => {
+    const fields = [
+      { type: 'text', name: 'status', defaultValue: 'draft' },
+      { type: 'text', name: 'dynamic', defaultValue: () => 'x' },
+    ] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.defaultValue).toBe('draft')
+    expect(result[1].metadata?.defaultValue).toBeUndefined()
+  })
+
+  it('extracts admin.custom.aiHint into metadata', () => {
+    const fields = [
+      {
+        type: 'text',
+        name: 'headline',
+        admin: { custom: { aiHint: 'Catchy SEO-friendly headline, 50-70 chars' } },
+      },
+    ] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.aiHint).toBe('Catchy SEO-friendly headline, 50-70 chars')
+  })
+
+  it('picks first string from localized label object for description', () => {
+    const fields = [
+      { type: 'text', name: 'title', admin: { description: { en: 'English desc', fr: 'desc fr' } } },
+    ] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata?.description).toBe('English desc')
+  })
+
+  it('omits metadata entirely when nothing is present', () => {
+    const fields = [{ type: 'text', name: 'title' }] as any
+    const result = analyzeFields(fields)
+    expect(result[0].metadata).toBeUndefined()
+  })
+
+  it('analyzes blocks field with block schemas', () => {
+    const fields = [
+      {
+        type: 'blocks',
+        name: 'layout',
+        blocks: [
+          {
+            slug: 'hero',
+            labels: { singular: 'Hero Section' },
+            imageAltText: 'Banner',
+            fields: [
+              { type: 'text', name: 'headline', required: true },
+              { type: 'text', name: 'subhead' },
+            ],
+          },
+          {
+            slug: 'cta',
+            fields: [{ type: 'text', name: 'label', required: true }],
+          },
+        ],
+      },
+    ] as any
+    const result = analyzeFields(fields)
+    expect(result[0].type).toBe('blocks')
+    expect(result[0].blocks).toHaveLength(2)
+    const hero = result[0].blocks?.[0]
+    expect(hero?.slug).toBe('hero')
+    expect(hero?.label).toBe('Hero Section')
+    expect(hero?.imageAltText).toBe('Banner')
+    expect(hero?.requiredFields).toEqual(['headline'])
+    expect(hero?.fields[0].path).toBe('layout.headline')
+    expect(result[0].blocks?.[1].slug).toBe('cta')
+  })
 })
