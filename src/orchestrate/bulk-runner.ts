@@ -11,6 +11,10 @@ export type BulkRunConfig = {
   provider: AIProvider
   rollbackOnError?: boolean
   mediaSource?: 'unsplash' | 'placeholder'
+  /** Forwarded to GenerationContext.domain — replaces default ecommerce framing */
+  domain?: string
+  /** Forwarded to GenerationContext.includeBlocks — enables first-class Blocks support */
+  includeBlocks?: boolean
 }
 
 export type BulkRunResult = {
@@ -74,6 +78,8 @@ export async function runBulkPopulation(
           count,
           theme: config.theme,
           existingIds: documentIds,
+          ...(config.domain !== undefined ? { domain: config.domain } : {}),
+          ...(config.includeBlocks !== undefined ? { includeBlocks: config.includeBlocks } : {}),
         })
         generatedDocs = result.documents
       } catch (err) {

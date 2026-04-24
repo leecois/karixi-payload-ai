@@ -27,6 +27,24 @@ export type AIPluginConfig = {
   rollbackOnError?: boolean
   /** Max concurrent browser instances for dev tools */
   maxConcurrentBrowserInstances?: number
+  /**
+   * Extra collection slugs to mark as non-populatable. Merged with the
+   * defaults (orders/carts/transactions) — use `replaceNonPopulatableDefaults`
+   * to disable the defaults instead of merging.
+   */
+  nonPopulatableSlugs?: string[]
+  /**
+   * When true, replaces the hard-coded ecommerce defaults
+   * (orders/carts/transactions) with your `nonPopulatableSlugs`.
+   * Use this for non-ecommerce projects that don't want the built-in list.
+   */
+  replaceNonPopulatableDefaults?: boolean
+  /**
+   * Optional domain string forwarded as GenerationContext.domain —
+   * replaces the default 'ecommerce platform' framing in generation
+   * prompts. Pass an empty string to drop the framing entirely.
+   */
+  domain?: string
 }
 
 export type CollectionAIConfig = {

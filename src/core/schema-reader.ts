@@ -6,8 +6,13 @@ import { analyzeFields } from './field-analyzer.js'
 const NON_POPULATABLE_SLUGS = new Set(['orders', 'carts', 'transactions'])
 
 export type SchemaReaderOptions = {
-  /** Override which slugs are considered non-populatable */
+  /** Extra slugs to mark as non-populatable (merged with defaults) */
   nonPopulatableSlugs?: string[]
+  /**
+   * When true, `nonPopulatableSlugs` REPLACES the built-in defaults rather
+   * than merging with them. Use for non-ecommerce projects.
+   */
+  replaceDefaults?: boolean
 }
 
 function extractRelationships(fields: FieldSchema[], collectionSlug: string): RelationshipInfo[] {
@@ -87,10 +92,9 @@ export function readCollectionSchema(
   const config = collection.config
   const fields = analyzeFields(config.fields)
 
-  const nonPopulatable = new Set([
-    ...NON_POPULATABLE_SLUGS,
-    ...(options?.nonPopulatableSlugs ?? []),
-  ])
+  const nonPopulatable = options?.replaceDefaults
+    ? new Set(options?.nonPopulatableSlugs ?? [])
+    : new Set([...NON_POPULATABLE_SLUGS, ...(options?.nonPopulatableSlugs ?? [])])
 
   const relationships = extractRelationships(fields, slug)
   const requiredFields = collectRequiredPaths(fields)

@@ -30,11 +30,26 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
           .string()
           .optional()
           .describe('Optional theme or topic to guide content generation'),
+        includeBlocks: z
+          .boolean()
+          .optional()
+          .describe(
+            'Opt-in to generate Blocks (layout) fields with block-catalog awareness. Defaults to false for backwards compatibility.',
+          ),
+        domain: z
+          .string()
+          .optional()
+          .describe(
+            'Optional domain framing (e.g. "blog", "news site"). Replaces the default "ecommerce platform" phrasing. Empty string drops framing entirely.',
+          ),
       },
       async handler(args, req) {
         const collection = args.collection as string
         const count = args.count as number
         const theme = (args.theme as string | undefined) ?? 'general'
+        const includeBlocks = args.includeBlocks as boolean | undefined
+        const domainArg = args.domain as string | undefined
+        const effectiveDomain = domainArg !== undefined ? domainArg : pluginConfig.domain
 
         try {
           const provider = createProvider({
@@ -44,8 +59,16 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             model: pluginConfig.model,
           })
 
-          const schema = readCollectionSchema(req.payload, collection)
-          const result = await generateDocuments(provider, schema, { count, theme })
+          const schema = readCollectionSchema(req.payload, collection, {
+            nonPopulatableSlugs: pluginConfig.nonPopulatableSlugs,
+            replaceDefaults: pluginConfig.replaceNonPopulatableDefaults,
+          })
+          const result = await generateDocuments(provider, schema, {
+            count,
+            theme,
+            ...(effectiveDomain !== undefined ? { domain: effectiveDomain } : {}),
+            ...(includeBlocks !== undefined ? { includeBlocks } : {}),
+          })
 
           let created = 0
           let failed = 0
@@ -84,10 +107,23 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
         counts: z
           .string()
           .describe('JSON map of collection slug to count, e.g. {"posts":5,"categories":3}'),
+        includeBlocks: z
+          .boolean()
+          .optional()
+          .describe('Opt-in to first-class Blocks (layout) generation across all collections.'),
+        domain: z
+          .string()
+          .optional()
+          .describe(
+            'Optional domain framing. Replaces default "ecommerce platform". Empty string drops framing.',
+          ),
       },
       async handler(args, req) {
         const theme = args.theme as string
         const countsRaw = args.counts as string
+        const includeBlocks = args.includeBlocks as boolean | undefined
+        const domainArg = args.domain as string | undefined
+        const effectiveDomain = domainArg !== undefined ? domainArg : pluginConfig.domain
 
         let counts: Record<string, number>
         try {
@@ -111,12 +147,17 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             model: pluginConfig.model,
           })
 
-          const schemas = readAllCollectionSchemas(req.payload)
+          const schemas = readAllCollectionSchemas(req.payload, {
+            nonPopulatableSlugs: pluginConfig.nonPopulatableSlugs,
+            replaceDefaults: pluginConfig.replaceNonPopulatableDefaults,
+          })
           const result = await runBulkPopulation(req.payload, req, schemas, {
             theme,
             counts,
             provider,
             rollbackOnError: pluginConfig.rollbackOnError,
+            ...(effectiveDomain !== undefined ? { domain: effectiveDomain } : {}),
+            ...(includeBlocks !== undefined ? { includeBlocks } : {}),
           })
 
           const summary = Object.entries(result.created)
