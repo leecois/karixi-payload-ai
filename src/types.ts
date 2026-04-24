@@ -66,8 +66,41 @@ export type FieldSchema = {
   relationTo?: string | string[]
   hasMany?: boolean
   fields?: FieldSchema[]
-  blocks?: Array<{ slug: string; fields: FieldSchema[] }>
+  blocks?: BlockSchema[]
   lexicalFeatures?: string[]
+  /** Field-level metadata harvested from Payload config (optional, additive) */
+  metadata?: FieldMetadata
+}
+
+/** Analyzed block schema (reused across collections) */
+export type BlockSchema = {
+  slug: string
+  fields: FieldSchema[]
+  /** Human label from Payload config (optional) */
+  label?: string
+  /** Imagery/icon hint, if any */
+  imageAltText?: string
+  /** Slug-level description from Payload config (optional) */
+  description?: string
+  /** List of required field names at the block level */
+  requiredFields?: string[]
+}
+
+/** Extra per-field hints harvested from Payload config */
+export type FieldMetadata = {
+  description?: string
+  placeholder?: string
+  defaultValue?: unknown
+  minLength?: number
+  maxLength?: number
+  min?: number
+  max?: number
+  unique?: boolean
+  readOnly?: boolean
+  /** True when this field is marked localized in Payload config */
+  localized?: boolean
+  /** AI generation hint from admin.custom or field.custom (if present) */
+  aiHint?: string
 }
 
 /** Relationship info between collections */

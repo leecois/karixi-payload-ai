@@ -9,9 +9,11 @@ export { aiPlugin } from './plugin.js'
 export type {
   AIPluginConfig,
   AIProvider,
+  BlockSchema,
   CollectionAIConfig,
   CollectionSchema,
   DeletionLogEntry,
+  FieldMetadata,
   FieldSchema,
   ProgressEvent,
   RelationshipInfo,
