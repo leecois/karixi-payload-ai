@@ -1,3 +1,5 @@
+import { validateBlocks } from '../generate/block-generator.js'
+import { contentToLexical, textToLexical } from '../generate/richtext-generator.js'
 import type { AIProvider, CollectionSchema, FieldSchema } from '../types.js'
 import type { GenerationContext } from './prompt-builder.js'
 import { buildGenerationPrompt, buildOutputSchema } from './prompt-builder.js'
@@ -18,7 +20,56 @@ function getSelectValues(field: FieldSchema): string[] {
   return (field.options ?? []).map((o) => o.value)
 }
 
-function validateDocument(doc: unknown, schema: CollectionSchema): ValidationError[] {
+/**
+ * Convert richText values (strings or {sections:[...]} objects) into Lexical
+ * JSON. Other values pass through unchanged. This is defensive — if the AI
+ * returns something already shaped like Lexical (has `root`), we keep it.
+ */
+function convertRichTextValue(value: unknown): unknown {
+  if (value === null || value === undefined) return value
+  if (typeof value === 'string') return textToLexical(value)
+  if (typeof value === 'object') {
+    const v = value as Record<string, unknown>
+    if (v.root !== undefined) return v
+    if (Array.isArray((v as { sections?: unknown }).sections)) {
+      return contentToLexical(v as Parameters<typeof contentToLexical>[0])
+    }
+  }
+  return value
+}
+
+/** Walk the generated doc and convert every richText field to Lexical. */
+function applyRichTextPostprocess(
+  doc: Record<string, unknown>,
+  fields: FieldSchema[],
+): Record<string, unknown> {
+  for (const field of fields) {
+    if (!(field.name in doc)) continue
+    if (field.type === 'richText') {
+      doc[field.name] = convertRichTextValue(doc[field.name])
+      continue
+    }
+    if (field.type === 'group' && field.fields && typeof doc[field.name] === 'object') {
+      const sub = doc[field.name] as Record<string, unknown> | null
+      if (sub && !Array.isArray(sub)) applyRichTextPostprocess(sub, field.fields)
+      continue
+    }
+    if (field.type === 'array' && field.fields && Array.isArray(doc[field.name])) {
+      for (const item of doc[field.name] as unknown[]) {
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          applyRichTextPostprocess(item as Record<string, unknown>, field.fields)
+        }
+      }
+    }
+  }
+  return doc
+}
+
+function validateDocument(
+  doc: unknown,
+  schema: CollectionSchema,
+  options: { includeBlocks?: boolean } = {},
+): ValidationError[] {
   const errors: ValidationError[] = []
 
   if (typeof doc !== 'object' || doc === null || Array.isArray(doc)) {
@@ -32,7 +83,8 @@ function validateDocument(doc: unknown, schema: CollectionSchema): ValidationErr
     const field = schema.fields.find((f) => f.name === fieldName)
     if (!field) continue
     // Skip fields that are handled separately
-    if (['relationship', 'richText', 'upload', 'blocks'].includes(field.type)) continue
+    if (['relationship', 'richText', 'upload'].includes(field.type)) continue
+    if (field.type === 'blocks' && !options.includeBlocks) continue
     if (record[fieldName] === undefined || record[fieldName] === null || record[fieldName] === '') {
       errors.push({
         field: fieldName,
@@ -52,6 +104,22 @@ function validateDocument(doc: unknown, schema: CollectionSchema): ValidationErr
         field: field.name,
         message: `Field "${field.name}" has invalid select value "${String(value)}". Must be one of: ${validValues.join(', ')}`,
       })
+    }
+  }
+
+  // Validate blocks fields when opted-in
+  if (options.includeBlocks) {
+    for (const field of schema.fields) {
+      if (field.type !== 'blocks') continue
+      const value = record[field.name]
+      if (value === undefined) continue
+      const { valid, issues } = validateBlocks(value, field)
+      // Replace the raw value with the cleaned, validated array so downstream
+      // Payload .create() receives only valid blocks.
+      record[field.name] = valid
+      for (const issue of issues) {
+        errors.push({ field: issue.path, message: issue.message })
+      }
     }
   }
 
@@ -75,7 +143,9 @@ export async function generateDocuments(
   options?: { maxRetries?: number },
 ): Promise<GenerationResult> {
   const maxRetries = options?.maxRetries ?? 3
-  const outputSchema = buildOutputSchema(schema)
+  const outputSchema = buildOutputSchema(schema, {
+    includeBlocks: context.includeBlocks === true,
+  })
 
   let prompt = buildGenerationPrompt(schema, context)
   let lastError: Error | null = null
@@ -101,7 +171,9 @@ export async function generateDocuments(
     const validDocuments: Record<string, unknown>[] = []
 
     for (const item of rawItems) {
-      const errors = validateDocument(item, schema)
+      const errors = validateDocument(item, schema, {
+        includeBlocks: context.includeBlocks === true,
+      })
       if (errors.length > 0) {
         allErrors.push(...errors)
       } else {
@@ -110,7 +182,9 @@ export async function generateDocuments(
     }
 
     if (allErrors.length === 0) {
-      return { documents: validDocuments }
+      return {
+        documents: validDocuments.map((d) => applyRichTextPostprocess(d, schema.fields)),
+      }
     }
 
     // Validation failed — retry if attempts remain
@@ -122,7 +196,9 @@ export async function generateDocuments(
 
     // Out of retries — return what we have if any valid docs, otherwise throw
     if (validDocuments.length > 0) {
-      return { documents: validDocuments }
+      return {
+        documents: validDocuments.map((d) => applyRichTextPostprocess(d, schema.fields)),
+      }
     }
 
     throw new Error(

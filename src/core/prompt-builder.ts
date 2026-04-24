@@ -15,6 +15,21 @@ export type GenerationContext = {
   includeBlocks?: boolean
 }
 
+function detectHeadingLevels(features: string[]): number[] {
+  const levels = new Set<number>()
+  for (const f of features) {
+    const m = f.match(/h([1-6])/i)
+    if (m) levels.add(Number.parseInt(m[1], 10))
+  }
+  // Also match a generic "heading" feature → allow h2–h4 as a sensible default
+  if (features.some((f) => /heading/i.test(f) && !/h[1-6]/i.test(f))) {
+    levels.add(2)
+    levels.add(3)
+    levels.add(4)
+  }
+  return [...levels].sort((a, b) => a - b)
+}
+
 function describeField(
   field: FieldSchema,
   existingIds?: Record<string, string[]>,
@@ -75,11 +90,29 @@ function describeField(
       break
     }
 
-    case 'richText':
-      lines.push(
-        `- "${field.name}" (richtext${required}): Return PLAIN TEXT only (do not wrap in Lexical/JSON — the system will convert it). Write 1–3 sentences of realistic content.`,
-      )
+    case 'richText': {
+      const features = field.lexicalFeatures ?? []
+      if (features.length > 0) {
+        const headingLevels = detectHeadingLevels(features)
+        const allowLists = features.some((f) => /list|bullet|number|ordered/i.test(f))
+        const capLines: string[] = []
+        if (headingLevels.length > 0) {
+          capLines.push(`headings (${headingLevels.map((l) => `h${l}`).join(', ')})`)
+        }
+        if (allowLists) capLines.push('bullet/numbered lists')
+        capLines.push('paragraphs')
+        lines.push(
+          `- "${field.name}" (richtext${required}): Return a structured object ` +
+            `{"sections":[{"heading":"optional","paragraphs":["..."],"bulletPoints":["..."]}]}. ` +
+            `The editor supports: ${capLines.join(', ')}. Keep each section short (1–3 paragraphs).`,
+        )
+      } else {
+        lines.push(
+          `- "${field.name}" (richtext${required}): Return PLAIN TEXT only (do not wrap in Lexical/JSON — the system will convert it). Write 1–3 sentences of realistic content.`,
+        )
+      }
       break
+    }
 
     case 'upload':
       lines.push(`- "${field.name}" (upload${required}): SKIP — handled separately`)
