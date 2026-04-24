@@ -195,7 +195,11 @@ describe('analyzeFields', () => {
 
   it('picks first string from localized label object for description', () => {
     const fields = [
-      { type: 'text', name: 'title', admin: { description: { en: 'English desc', fr: 'desc fr' } } },
+      {
+        type: 'text',
+        name: 'title',
+        admin: { description: { en: 'English desc', fr: 'desc fr' } },
+      },
     ] as any
     const result = analyzeFields(fields)
     expect(result[0].metadata?.description).toBe('English desc')
