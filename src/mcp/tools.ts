@@ -158,6 +158,12 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             rollbackOnError: pluginConfig.rollbackOnError,
             ...(effectiveDomain !== undefined ? { domain: effectiveDomain } : {}),
             ...(includeBlocks !== undefined ? { includeBlocks } : {}),
+            ...(pluginConfig.rateLimit?.maxConcurrentRequests !== undefined
+              ? { maxConcurrentCreates: pluginConfig.rateLimit.maxConcurrentRequests }
+              : {}),
+            ...(pluginConfig.rateLimit?.delayBetweenRequests !== undefined
+              ? { delayBetweenCreatesMs: pluginConfig.rateLimit.delayBetweenRequests }
+              : {}),
           })
 
           const summary = Object.entries(result.created)

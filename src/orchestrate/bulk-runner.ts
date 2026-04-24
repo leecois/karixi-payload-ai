@@ -3,6 +3,7 @@ import type { Payload, PayloadRequest } from 'payload'
 import { DeletionLog } from '../generate/deletion-log.js'
 import { linkRelationships } from '../generate/relationship-linker.js'
 import type { AIProvider, CollectionSchema, ProgressEvent } from '../types.js'
+import { createLimiter } from './concurrency.js'
 import { emitProgress } from './progress-tracker.js'
 
 export type BulkRunConfig = {
@@ -15,6 +16,10 @@ export type BulkRunConfig = {
   domain?: string
   /** Forwarded to GenerationContext.includeBlocks — enables first-class Blocks support */
   includeBlocks?: boolean
+  /** Max concurrent payload.create() calls per collection. Default: 1 (serial). */
+  maxConcurrentCreates?: number
+  /** Minimum ms between dispatches within a collection. Default: 0. */
+  delayBetweenCreatesMs?: number
 }
 
 export type BulkRunResult = {
@@ -91,39 +96,48 @@ export async function runBulkPopulation(
         continue
       }
 
-      for (const doc of generatedDocs) {
-        try {
-          const record = await payload.create({
-            collection: slug as Parameters<Payload['create']>[0]['collection'],
-            data: doc as Record<string, unknown>,
-            overrideAccess: true,
-            req,
-          })
+      const limiter = createLimiter({
+        concurrency: config.maxConcurrentCreates ?? 1,
+        delayBetweenMs: config.delayBetweenCreatesMs ?? 0,
+      })
 
-          const id = String(record.id)
-          deletionLog.record(slug, id)
-          documentIds[slug].push(id)
-          created[slug]++
-        } catch (err) {
-          console.error(
-            `[bulk-runner] Failed to create document in "${slug}":`,
-            err instanceof Error ? err.message : String(err),
-          )
-          failed[slug]++
-        }
+      await Promise.all(
+        generatedDocs.map((doc) =>
+          limiter(async () => {
+            try {
+              const record = await payload.create({
+                collection: slug as Parameters<Payload['create']>[0]['collection'],
+                data: doc as Record<string, unknown>,
+                overrideAccess: true,
+                req,
+              })
 
-        if (emitter) {
-          const event: ProgressEvent = {
-            phase: 'create',
-            collection: slug,
-            created: created[slug],
-            failed: failed[slug],
-            total: count,
-            elapsed: Date.now() - startTime,
-          }
-          emitProgress(emitter, event)
-        }
-      }
+              const id = String(record.id)
+              deletionLog.record(slug, id)
+              documentIds[slug].push(id)
+              created[slug]++
+            } catch (err) {
+              console.error(
+                `[bulk-runner] Failed to create document in "${slug}":`,
+                err instanceof Error ? err.message : String(err),
+              )
+              failed[slug]++
+            }
+
+            if (emitter) {
+              const event: ProgressEvent = {
+                phase: 'create',
+                collection: slug,
+                created: created[slug],
+                failed: failed[slug],
+                total: count,
+                elapsed: Date.now() - startTime,
+              }
+              emitProgress(emitter, event)
+            }
+          }),
+        ),
+      )
     }
 
     // Deferred: link relationships across all processed collections
