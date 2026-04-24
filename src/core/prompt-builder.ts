@@ -1,3 +1,4 @@
+import { blocksOutputSchema, describeBlocksField } from '../generate/block-generator.js'
 import type { CollectionSchema, FieldSchema } from '../types.js'
 
 export type GenerationContext = {
@@ -5,9 +6,20 @@ export type GenerationContext = {
   theme?: string
   locale?: string
   existingIds?: Record<string, string[]>
+  /** Optional domain framing (e.g. "blog", "news site", "SaaS app"). If
+   *  omitted, the generic "ecommerce platform" phrasing is preserved for
+   *  backwards compatibility. Set to empty string to drop domain framing. */
+  domain?: string
+  /** Opt-in: generate Blocks fields using the block catalog instead of
+   *  skipping them. Defaults to false to preserve existing behavior. */
+  includeBlocks?: boolean
 }
 
-function describeField(field: FieldSchema, existingIds?: Record<string, string[]>): string {
+function describeField(
+  field: FieldSchema,
+  existingIds?: Record<string, string[]>,
+  includeBlocks = false,
+): string {
   const lines: string[] = []
   const required = field.required ? ' (required)' : ' (optional)'
 
@@ -78,13 +90,17 @@ function describeField(field: FieldSchema, existingIds?: Record<string, string[]
       if (field.fields && field.fields.length > 0) {
         lines.push(`- "${field.name}" (${field.type}${required}):`)
         for (const subField of field.fields) {
-          lines.push(`  ${describeField(subField, existingIds)}`)
+          lines.push(`  ${describeField(subField, existingIds, includeBlocks)}`)
         }
       }
       break
 
     case 'blocks':
-      lines.push(`- "${field.name}" (blocks${required}): SKIP — complex layout field, omit`)
+      if (includeBlocks) {
+        lines.push(describeBlocksField(field))
+      } else {
+        lines.push(`- "${field.name}" (blocks${required}): SKIP — complex layout field, omit`)
+      }
       break
 
     default:
@@ -99,7 +115,7 @@ export function buildGenerationPrompt(
   context: GenerationContext,
 ): string {
   const fieldDescriptions = schema.fields
-    .map((f) => describeField(f, context.existingIds))
+    .map((f) => describeField(f, context.existingIds, context.includeBlocks ?? false))
     .join('\n')
 
   const requiredNote =
@@ -114,6 +130,17 @@ export function buildGenerationPrompt(
       ? `\nGenerate content in locale: ${context.locale}`
       : ''
 
+  // Domain framing: default is the historical "ecommerce platform" string.
+  // Passing context.domain="" drops the phrase; passing any other string
+  // substitutes it. This preserves current behavior when domain is undefined.
+  const domain =
+    context.domain === undefined
+      ? 'an ecommerce platform'
+      : context.domain.trim().length === 0
+        ? ''
+        : context.domain
+  const domainNote = domain ? ` appropriate for ${domain}` : ''
+
   return `Generate ${context.count} realistic document(s) for the "${schema.slug}" collection.
 ${themeNote}${localeNote}${requiredNote}
 
@@ -127,16 +154,27 @@ Rules:
 - For richtext fields: return plain text strings only
 - For relationship fields: use the provided existing IDs exactly as shown
 - Do not include extra fields not listed above
-- Generate varied, realistic content appropriate for an ecommerce platform`
+- Generate varied, realistic content${domainNote}`
 }
 
-export function buildOutputSchema(schema: CollectionSchema): Record<string, unknown> {
+export function buildOutputSchema(
+  schema: CollectionSchema,
+  options?: { includeBlocks?: boolean },
+): Record<string, unknown> {
   const properties: Record<string, unknown> = {}
   const required: string[] = []
+  const includeBlocks = options?.includeBlocks === true
 
   for (const field of schema.fields) {
+    if (field.type === 'blocks') {
+      if (!includeBlocks) continue
+      properties[field.name] = blocksOutputSchema(field)
+      if (field.required) required.push(field.name)
+      continue
+    }
+
     // Skip fields handled separately
-    if (['relationship', 'richText', 'upload', 'blocks'].includes(field.type)) {
+    if (['relationship', 'richText', 'upload'].includes(field.type)) {
       continue
     }
 
