@@ -164,6 +164,50 @@ describe('content-generator — blocks validation (opt-in)', () => {
     ).rejects.toThrow(/unknown blockType/)
   })
 
+  it('custom FieldTypeAdapter describe + validate are consulted for unknown types', async () => {
+    // Simulate a custom 'slug' field coming from a community plugin
+    const schema: CollectionSchema = {
+      slug: 'pages',
+      fields: [
+        { name: 'title', type: 'text', required: true, path: 'title' },
+        { name: 'path', type: 'slug', required: true, path: 'path' },
+      ],
+      relationships: [],
+      requiredFields: ['title', 'path'],
+      populatable: true,
+    }
+    const { createRegistry } = await import('./src/core/field-adapters.js')
+    const registry = createRegistry([
+      {
+        type: 'slug',
+        describe: (f) => `- "${f.name}" (slug): kebab-case identifier derived from the title`,
+        outputSchema: () => ({ type: 'string', pattern: '^[a-z0-9-]+$' }),
+        validate: (value, field) => {
+          if (typeof value !== 'string') {
+            return [{ field: field.name, message: 'slug must be a string' }]
+          }
+          return /^[a-z0-9-]+$/.test(value)
+            ? []
+            : [{ field: field.name, message: `invalid slug "${value}"` }]
+        },
+      },
+    ])
+
+    // First response: invalid slug (has uppercase + spaces). Retry fixes it.
+    const provider = stubProvider([
+      [{ title: 'Hello', path: 'Hello World' }],
+      [{ title: 'Hello', path: 'hello-world' }],
+    ])
+    const result = await generateDocuments(
+      provider,
+      schema,
+      { count: 1, adapters: registry },
+      { maxRetries: 2 },
+    )
+    expect(result.documents).toHaveLength(1)
+    expect(result.documents[0].path).toBe('hello-world')
+  })
+
   it('accepts a mixed batch: one clean doc + one with invalid blocks (out of retries)', async () => {
     // Multi-doc first response: one valid, one with unknown block
     const provider = stubProvider([

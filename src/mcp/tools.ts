@@ -1,6 +1,7 @@
 import type { PayloadRequest } from 'payload'
 import { z } from 'zod'
 import { generateDocuments } from '../core/content-generator.js'
+import { createRegistry } from '../core/field-adapters.js'
 import { createProvider } from '../core/providers/base.js'
 import { buildSchemaManifest } from '../core/schema-manifest.js'
 import { readAllCollectionSchemas, readCollectionSchema } from '../core/schema-reader.js'
@@ -19,6 +20,14 @@ export type MCPTool = {
 }
 
 export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
+  // Shared adapter registry: built from whatever custom adapters the user
+  // supplied in aiPlugin({ fieldAdapters: [...] }). Built-in native types
+  // go through the legacy switch in prompt-builder; the registry is only
+  // consulted for types the switch doesn't know about.
+  const adapters = pluginConfig.fieldAdapters
+    ? createRegistry(pluginConfig.fieldAdapters)
+    : undefined
+
   return [
     {
       name: 'populateCollection',
@@ -68,6 +77,7 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             theme,
             ...(effectiveDomain !== undefined ? { domain: effectiveDomain } : {}),
             ...(includeBlocks !== undefined ? { includeBlocks } : {}),
+            ...(adapters ? { adapters } : {}),
           })
 
           let created = 0
@@ -164,6 +174,7 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
             ...(pluginConfig.rateLimit?.delayBetweenRequests !== undefined
               ? { delayBetweenCreatesMs: pluginConfig.rateLimit.delayBetweenRequests }
               : {}),
+            ...(adapters ? { adapters } : {}),
           })
 
           const summary = Object.entries(result.created)

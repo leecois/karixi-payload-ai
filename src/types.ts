@@ -45,6 +45,17 @@ export type AIPluginConfig = {
    * prompts. Pass an empty string to drop the framing entirely.
    */
   domain?: string
+  /**
+   * Custom FieldTypeAdapters for non-native Payload field types (e.g.
+   * community plugins that introduce a 'slug' or 'geolocation' field
+   * type). Each adapter supplies describe/outputSchema/validate/
+   * postprocess hooks so the generator handles the type without core
+   * modifications.
+   *
+   * Supplied adapters are merged with the built-in set; same-type keys
+   * override built-ins (which is usually what you want when customizing).
+   */
+  fieldAdapters?: import('./core/field-adapters.js').FieldTypeAdapter[]
 }
 
 export type CollectionAIConfig = {

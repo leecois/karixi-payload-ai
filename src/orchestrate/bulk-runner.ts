@@ -1,5 +1,6 @@
 import type { EventEmitter } from 'node:events'
 import type { Payload, PayloadRequest } from 'payload'
+import type { FieldAdapterRegistry } from '../core/field-adapters.js'
 import { DeletionLog } from '../generate/deletion-log.js'
 import { linkRelationships } from '../generate/relationship-linker.js'
 import type { AIProvider, CollectionSchema, ProgressEvent } from '../types.js'
@@ -20,6 +21,8 @@ export type BulkRunConfig = {
   maxConcurrentCreates?: number
   /** Minimum ms between dispatches within a collection. Default: 0. */
   delayBetweenCreatesMs?: number
+  /** Optional FieldTypeAdapter registry for custom field types */
+  adapters?: FieldAdapterRegistry
 }
 
 export type BulkRunResult = {
@@ -86,6 +89,7 @@ export async function runBulkPopulation(
           existingIds: documentIds,
           ...(config.domain !== undefined ? { domain: config.domain } : {}),
           ...(config.includeBlocks !== undefined ? { includeBlocks: config.includeBlocks } : {}),
+          ...(config.adapters ? { adapters: config.adapters } : {}),
         })
         generatedDocs = result.documents
       } catch (err) {

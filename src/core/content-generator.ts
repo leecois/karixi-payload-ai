@@ -1,6 +1,7 @@
 import { validateBlocks } from '../generate/block-generator.js'
 import { contentToLexical, textToLexical } from '../generate/richtext-generator.js'
 import type { AIProvider, CollectionSchema, FieldSchema } from '../types.js'
+import type { FieldAdapterRegistry, ValidationIssue } from './field-adapters.js'
 import type { GenerationContext } from './prompt-builder.js'
 import { buildGenerationPrompt, buildOutputSchema } from './prompt-builder.js'
 
@@ -68,7 +69,7 @@ function applyRichTextPostprocess(
 function validateDocument(
   doc: unknown,
   schema: CollectionSchema,
-  options: { includeBlocks?: boolean } = {},
+  options: { includeBlocks?: boolean; adapters?: FieldAdapterRegistry } = {},
 ): ValidationError[] {
   const errors: ValidationError[] = []
 
@@ -123,6 +124,20 @@ function validateDocument(
     }
   }
 
+  // Custom FieldTypeAdapter validators
+  if (options.adapters) {
+    for (const field of schema.fields) {
+      const adapter = options.adapters.get(field.type)
+      if (!adapter?.validate) continue
+      const value = record[field.name]
+      if (value === undefined) continue
+      const adapterIssues: ValidationIssue[] = adapter.validate(value, field)
+      for (const issue of adapterIssues) {
+        errors.push({ field: issue.field, message: issue.message })
+      }
+    }
+  }
+
   return errors
 }
 
@@ -145,6 +160,7 @@ export async function generateDocuments(
   const maxRetries = options?.maxRetries ?? 3
   const outputSchema = buildOutputSchema(schema, {
     includeBlocks: context.includeBlocks === true,
+    adapters: context.adapters,
   })
 
   let prompt = buildGenerationPrompt(schema, context)
@@ -173,6 +189,7 @@ export async function generateDocuments(
     for (const item of rawItems) {
       const errors = validateDocument(item, schema, {
         includeBlocks: context.includeBlocks === true,
+        adapters: context.adapters,
       })
       if (errors.length > 0) {
         allErrors.push(...errors)

@@ -1,5 +1,6 @@
 import { blocksOutputSchema, describeBlocksField } from '../generate/block-generator.js'
 import type { CollectionSchema, FieldSchema } from '../types.js'
+import type { FieldAdapterRegistry } from './field-adapters.js'
 
 export type GenerationContext = {
   count: number
@@ -13,6 +14,10 @@ export type GenerationContext = {
   /** Opt-in: generate Blocks fields using the block catalog instead of
    *  skipping them. Defaults to false to preserve existing behavior. */
   includeBlocks?: boolean
+  /** Optional registry of FieldTypeAdapters for custom field types. When
+   *  a field.type isn't recognized by the built-in switch, the registry
+   *  is consulted. If it too has no adapter, a generic fallback is used. */
+  adapters?: FieldAdapterRegistry
 }
 
 function detectHeadingLevels(features: string[]): number[] {
@@ -34,6 +39,8 @@ function describeField(
   field: FieldSchema,
   existingIds?: Record<string, string[]>,
   includeBlocks = false,
+  adapters?: FieldAdapterRegistry,
+  domain?: string,
 ): string {
   const lines: string[] = []
   const required = field.required ? ' (required)' : ' (optional)'
@@ -123,7 +130,7 @@ function describeField(
       if (field.fields && field.fields.length > 0) {
         lines.push(`- "${field.name}" (${field.type}${required}):`)
         for (const subField of field.fields) {
-          lines.push(`  ${describeField(subField, existingIds, includeBlocks)}`)
+          lines.push(`  ${describeField(subField, existingIds, includeBlocks, adapters, domain)}`)
         }
       }
       break
@@ -136,8 +143,17 @@ function describeField(
       }
       break
 
-    default:
+    default: {
+      // Consult the FieldTypeAdapter registry for custom types before
+      // falling back to the generic description.
+      const adapter = adapters?.get(field.type)
+      if (adapter?.describe) {
+        const fragment = adapter.describe(field, { existingIds, domain })
+        if (fragment !== null) lines.push(fragment)
+        break
+      }
       lines.push(`- "${field.name}" (${field.type}${required}): Generate appropriate content`)
+    }
   }
 
   return lines.join('\n')
@@ -148,7 +164,15 @@ export function buildGenerationPrompt(
   context: GenerationContext,
 ): string {
   const fieldDescriptions = schema.fields
-    .map((f) => describeField(f, context.existingIds, context.includeBlocks ?? false))
+    .map((f) =>
+      describeField(
+        f,
+        context.existingIds,
+        context.includeBlocks ?? false,
+        context.adapters,
+        context.domain,
+      ),
+    )
     .join('\n')
 
   const requiredNote =
@@ -192,11 +216,12 @@ Rules:
 
 export function buildOutputSchema(
   schema: CollectionSchema,
-  options?: { includeBlocks?: boolean },
+  options?: { includeBlocks?: boolean; adapters?: FieldAdapterRegistry },
 ): Record<string, unknown> {
   const properties: Record<string, unknown> = {}
   const required: string[] = []
   const includeBlocks = options?.includeBlocks === true
+  const adapters = options?.adapters
 
   for (const field of schema.fields) {
     if (field.type === 'blocks') {
@@ -243,8 +268,17 @@ export function buildOutputSchema(
         fieldSchema = { type: 'object' }
         break
 
-      default:
+      default: {
+        // Route unknown types through the adapter registry first.
+        const adapter = adapters?.get(field.type)
+        const custom = adapter?.outputSchema?.(field)
+        if (custom !== undefined) {
+          if (custom === null) continue // adapter chose to exclude
+          fieldSchema = custom
+          break
+        }
         fieldSchema = { type: 'string' }
+      }
     }
 
     properties[field.name] = fieldSchema
