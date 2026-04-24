@@ -2,6 +2,7 @@ import type { PayloadRequest } from 'payload'
 import { z } from 'zod'
 import { generateDocuments } from '../core/content-generator.js'
 import { createProvider } from '../core/providers/base.js'
+import { buildSchemaManifest } from '../core/schema-manifest.js'
 import { readAllCollectionSchemas, readCollectionSchema } from '../core/schema-reader.js'
 import { runBulkPopulation } from '../orchestrate/bulk-runner.js'
 import type { AIPluginConfig } from '../types.js'
@@ -166,6 +167,45 @@ export function getAITools(pluginConfig: AIPluginConfig): MCPTool[] {
           return { content: [{ type: 'text', text }] }
         } catch (err) {
           const text = `Error listing collections: ${err instanceof Error ? err.message : String(err)}`
+          return { content: [{ type: 'text', text }] }
+        }
+      },
+    },
+
+    {
+      name: 'describePayloadProject',
+      description:
+        'Return a complete Schema Manifest for this Payload project: every collection, deduplicated block catalog, lexical editor capabilities, custom field types, upload + auth collections, locales, and a config fingerprint. Call this once at the start of a session to discover the project shape without asking per-collection.',
+      parameters: {
+        includeFields: z
+          .boolean()
+          .optional()
+          .describe(
+            'When true (default), each collection includes its full field tree. When false, only slugs and summary counts are returned — useful for reducing token usage on large projects.',
+          ),
+      },
+      async handler(args, req) {
+        try {
+          const includeFields = args.includeFields !== false
+          const manifest = buildSchemaManifest(req.payload)
+
+          if (!includeFields) {
+            const slim = {
+              ...manifest,
+              collections: manifest.collections.map((c) => ({
+                slug: c.slug,
+                fieldCount: c.fields.length,
+                relationshipCount: c.relationships.length,
+                populatable: c.populatable,
+                requiredFields: c.requiredFields,
+              })),
+            }
+            return { content: [{ type: 'text', text: JSON.stringify(slim, null, 2) }] }
+          }
+
+          return { content: [{ type: 'text', text: JSON.stringify(manifest, null, 2) }] }
+        } catch (err) {
+          const text = `Error building schema manifest: ${err instanceof Error ? err.message : String(err)}`
           return { content: [{ type: 'text', text }] }
         }
       },
