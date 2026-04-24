@@ -56,6 +56,7 @@ export async function runBulkPopulation(
   const created: Record<string, number> = {}
   const failed: Record<string, number> = {}
   const documentIds: Record<string, string[]> = {}
+  const documentBodies: Record<string, Record<string, Record<string, unknown>>> = {}
   const deletionLog = new DeletionLog()
   let rolledBack = false
 
@@ -115,6 +116,8 @@ export async function runBulkPopulation(
               const id = String(record.id)
               deletionLog.record(slug, id)
               documentIds[slug].push(id)
+              if (!documentBodies[slug]) documentBodies[slug] = {}
+              documentBodies[slug][id] = doc as Record<string, unknown>
               created[slug]++
             } catch (err) {
               console.error(
@@ -146,7 +149,9 @@ export async function runBulkPopulation(
       if (!schema || schema.relationships.length === 0) continue
 
       try {
-        await linkRelationships(payload, req, schema, documentIds)
+        await linkRelationships(payload, req, schema, documentIds, {
+          documents: documentBodies,
+        })
       } catch (err) {
         console.error(
           `[bulk-runner] Failed to link relationships for "${slug}":`,
