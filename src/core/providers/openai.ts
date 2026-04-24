@@ -25,17 +25,29 @@ function isOpenAIResponse(value: unknown): value is OpenAIResponse {
   )
 }
 
-export function createOpenAIProvider(apiKey: string): AIProvider {
+export type OpenAIProviderConfig = {
+  apiKey: string
+  model?: string
+  baseUrl?: string
+}
+
+export function createOpenAIProvider(configOrKey: OpenAIProviderConfig | string): AIProvider {
+  const config: OpenAIProviderConfig =
+    typeof configOrKey === 'string' ? { apiKey: configOrKey } : configOrKey
+  const apiKey = config.apiKey
+  const model = config.model ?? 'gpt-4o'
+  const baseUrl = (config.baseUrl ?? 'https://api.openai.com').replace(/\/+$/, '')
+
   async function callAPI(messages: OpenAIMessage[], jsonMode: boolean): Promise<OpenAIResponse> {
     const body: Record<string, unknown> = {
-      model: 'gpt-4o',
+      model,
       messages,
     }
     if (jsonMode) {
       body.response_format = { type: 'json_object' }
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,

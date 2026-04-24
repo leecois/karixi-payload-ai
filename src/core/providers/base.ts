@@ -16,9 +16,17 @@ export type ProviderConfig = {
 export function createProvider(config: ProviderConfig): AIProvider {
   switch (config.provider) {
     case 'anthropic':
-      return createAnthropicProvider(config.apiKey)
+      return createAnthropicProvider({
+        apiKey: config.apiKey,
+        model: config.model,
+        baseUrl: config.baseUrl,
+      })
     case 'openai':
-      return createOpenAIProvider(config.apiKey)
+      return createOpenAIProvider({
+        apiKey: config.apiKey,
+        model: config.model,
+        baseUrl: config.baseUrl,
+      })
     case 'gemini':
       return createGeminiProvider({
         apiKey: config.apiKey,

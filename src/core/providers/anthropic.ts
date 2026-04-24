@@ -23,9 +23,21 @@ function isAnthropicResponse(value: unknown): value is AnthropicResponse {
   )
 }
 
-export function createAnthropicProvider(apiKey: string): AIProvider {
+export type AnthropicProviderConfig = {
+  apiKey: string
+  model?: string
+  baseUrl?: string
+}
+
+export function createAnthropicProvider(configOrKey: AnthropicProviderConfig | string): AIProvider {
+  const config: AnthropicProviderConfig =
+    typeof configOrKey === 'string' ? { apiKey: configOrKey } : configOrKey
+  const apiKey = config.apiKey
+  const model = config.model ?? 'claude-sonnet-4-20250514'
+  const baseUrl = (config.baseUrl ?? 'https://api.anthropic.com').replace(/\/+$/, '')
+
   async function callAPI(messages: AnthropicMessage[]): Promise<AnthropicResponse> {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(`${baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
@@ -33,7 +45,7 @@ export function createAnthropicProvider(apiKey: string): AIProvider {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 8192,
         messages,
       }),
